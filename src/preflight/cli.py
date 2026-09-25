@@ -1,7 +1,9 @@
 import argparse
+from collections import Counter
 from pathlib import Path
 
 from .inventory import inventory_build
+from .rules import inspect
 
 
 def _human_bytes(value: int) -> str:
@@ -14,19 +16,25 @@ def _human_bytes(value: int) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        prog="preflight",
-        description="Check the build before you ship the build.",
-    )
+    parser = argparse.ArgumentParser(prog="preflight", description="Check the build before you ship the build.")
     parser.add_argument("build", type=Path, help="Finished build folder")
     args = parser.parse_args()
+
     inventory = inventory_build(args.build)
+    findings = inspect(inventory)
+    counts = Counter(f.severity for f in findings)
 
     print("Release Preflight")
     print(f"Files: {len(inventory.files):,}")
     print(f"Size: {_human_bytes(inventory.total_bytes)}")
-    status = "Complete" if inventory.coverage_complete else "Limited"
-    print(f"Coverage: {status}")
+    print(f"Coverage: {'Complete' if inventory.coverage_complete else 'Limited'}")
+    print(f"Findings: {counts['Critical']} Critical / {counts['Warning']} Warning / {counts['Info']} Info")
+
+    for finding in findings:
+        print(f"\n[{finding.severity}] {finding.title}")
+        print(f"  {finding.path}")
+        print(f"  {finding.reason}")
+        print(f"  Rule: {finding.rule_id}")
 
 
 if __name__ == "__main__":
