@@ -2,6 +2,7 @@ import argparse
 from collections import Counter
 from pathlib import Path
 
+from .analysis import composition, largest_files
 from .inventory import inventory_build
 from .rules import inspect
 
@@ -29,6 +30,15 @@ def main() -> None:
     print(f"Size: {_human_bytes(inventory.total_bytes)}")
     print(f"Coverage: {'Complete' if inventory.coverage_complete else 'Limited'}")
     print(f"Findings: {counts['Critical']} Critical / {counts['Warning']} Warning / {counts['Info']} Info")
+
+    print("\nBuild composition:")
+    for stat in composition(inventory):
+        percent = (stat.bytes / inventory.total_bytes * 100) if inventory.total_bytes else 0
+        print(f"  {stat.name}: {_human_bytes(stat.bytes)} ({percent:.1f}%) · {stat.files} files")
+
+    print("\nLargest files:")
+    for file in largest_files(inventory):
+        print(f"  {_human_bytes(file.size):>10}  {file.relative_path}")
 
     for finding in findings:
         print(f"\n[{finding.severity}] {finding.title}")
