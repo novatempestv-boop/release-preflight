@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "release-preflight"
+version = "0.1.0"
+description = "Local, read-only release inspection for finished game builds."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+preflight = "preflight.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
