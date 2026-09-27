@@ -44,6 +44,8 @@ def main() -> None:
         print(f"\n[{finding.severity}] {finding.title}")
         print(f"  {finding.path}")
         print(f"  {finding.reason}")
+        print(f"  Confidence: {finding.confidence}")
+        print(f"  Suggested action: {finding.suggested_action}")
         print(f"  Rule: {finding.rule_id}")
 
 
