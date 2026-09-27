@@ -2,7 +2,7 @@ import argparse
 from collections import Counter
 from pathlib import Path
 
-from .analysis import composition, largest_files
+from .analysis import composition, duplicate_groups, largest_files
 from .inventory import inventory_build
 from .rules import inspect
 
@@ -39,6 +39,14 @@ def main() -> None:
     print("\nLargest files:")
     for file in largest_files(inventory):
         print(f"  {_human_bytes(file.size):>10}  {file.relative_path}")
+
+    duplicates = duplicate_groups(inventory)
+    if duplicates:
+        print("\nExact duplicates:")
+        for group in duplicates:
+            print(f"  {_human_bytes(group.wasted_bytes)} potentially wasted · {len(group.paths)} copies")
+            for path in group.paths:
+                print(f"    {path}")
 
     for finding in findings:
         print(f"\n[{finding.severity}] {finding.title}")
