@@ -5,6 +5,7 @@ from pathlib import Path
 from .analysis import composition, duplicate_groups, largest_files
 from .detection import detect
 from .inventory import inventory_build
+from .portability import inspect_paths
 from .rules import inspect
 
 
@@ -24,6 +25,7 @@ def main() -> None:
 
     inventory = inventory_build(args.build)
     findings = inspect(inventory)
+    path_issues = inspect_paths(inventory)
     counts = Counter(f.severity for f in findings)
 
     print("Release Preflight")
@@ -31,6 +33,7 @@ def main() -> None:
     print(f"Size: {_human_bytes(inventory.total_bytes)}")
     print(f"Coverage: {'Complete' if inventory.coverage_complete else 'Limited'}")
     print(f"Findings: {counts['Critical']} Critical / {counts['Warning']} Warning / {counts['Info']} Info")
+    print(f"Path portability: {len(path_issues)} issue(s)")
 
     detections = detect(inventory)
     if detections:
@@ -58,6 +61,15 @@ def main() -> None:
             print(f"  {_human_bytes(group.wasted_bytes)} potentially wasted · {len(group.paths)} copies")
             for path in group.paths:
                 print(f"    {path}")
+
+    if path_issues:
+        print("\nPath portability:")
+        for issue in path_issues:
+            print(f"  [{issue.severity}] {issue.title}")
+            print(f"    {issue.path}")
+            print(f"    {issue.reason}")
+            print(f"    Confidence: {issue.confidence}")
+            print(f"    Rule: {issue.rule_id}")
 
     for finding in findings:
         print(f"\n[{finding.severity}] {finding.title}")
