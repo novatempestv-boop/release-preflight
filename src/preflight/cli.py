@@ -2,6 +2,7 @@ import argparse
 from collections import Counter
 from pathlib import Path
 
+from .report import report_json
 from .scan import scan_build
 
 
@@ -17,9 +18,14 @@ def _human_bytes(value: int) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="preflight", description="Check the build before you ship the build.")
     parser.add_argument("build", type=Path, help="Finished build folder")
+    parser.add_argument("--json", action="store_true", help="Print a privacy-safe JSON report")
     args = parser.parse_args()
 
     result = scan_build(args.build)
+    if args.json:
+        print(report_json(result), end="")
+        return
+
     inventory = result.inventory
     findings = result.findings
     path_issues = result.path_issues
