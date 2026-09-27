@@ -2,12 +2,7 @@ import argparse
 from collections import Counter
 from pathlib import Path
 
-from .analysis import composition, duplicate_groups, largest_files
-from .detection import detect
-from .inventory import inventory_build
-from .portability import inspect_paths
-from .secrets import inspect_secret_contents
-from .rules import inspect
+from .scan import scan_build
 
 
 def _human_bytes(value: int) -> str:
@@ -24,10 +19,11 @@ def main() -> None:
     parser.add_argument("build", type=Path, help="Finished build folder")
     args = parser.parse_args()
 
-    inventory = inventory_build(args.build)
-    findings = inspect(inventory)
-    path_issues = inspect_paths(inventory)
-    secret_findings = inspect_secret_contents(inventory)
+    result = scan_build(args.build)
+    inventory = result.inventory
+    findings = result.findings
+    path_issues = result.path_issues
+    secret_findings = result.secret_findings
     counts = Counter(f.severity for f in findings)
 
     print("Release Preflight")
@@ -44,7 +40,7 @@ def main() -> None:
     print(f"Path portability: {len(path_issues)} issue(s)")
     print(f"Content secrets: {len(secret_findings)} finding(s)")
 
-    detections = detect(inventory)
+    detections = result.detections
     if detections:
         print("\nDetected build:")
         for item in detections:
@@ -55,15 +51,15 @@ def main() -> None:
         print("\nDetected build: Unknown (not enough evidence)")
 
     print("\nBuild composition:")
-    for stat in composition(inventory):
+    for stat in result.composition:
         percent = (stat.bytes / inventory.total_bytes * 100) if inventory.total_bytes else 0
         print(f"  {stat.name}: {_human_bytes(stat.bytes)} ({percent:.1f}%) · {stat.files} files")
 
     print("\nLargest files:")
-    for file in largest_files(inventory):
+    for file in result.largest_files:
         print(f"  {_human_bytes(file.size):>10}  {file.relative_path}")
 
-    duplicates = duplicate_groups(inventory)
+    duplicates = result.duplicates
     if duplicates:
         print("\nExact duplicates:")
         for group in duplicates:
