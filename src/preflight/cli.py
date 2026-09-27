@@ -32,6 +32,12 @@ def main() -> None:
     print(f"Files: {len(inventory.files):,}")
     print(f"Size: {_human_bytes(inventory.total_bytes)}")
     print(f"Coverage: {'Complete' if inventory.coverage_complete else 'Limited'}")
+    if inventory.inaccessible:
+        print(f"Uninspected: {len(inventory.inaccessible)} path(s)")
+        for path in inventory.inaccessible[:5]:
+            print(f"  {path}")
+        if len(inventory.inaccessible) > 5:
+            print(f"  ... and {len(inventory.inaccessible) - 5} more")
     print(f"Findings: {counts['Critical']} Critical / {counts['Warning']} Warning / {counts['Info']} Info")
     print(f"Path portability: {len(path_issues)} issue(s)")
 
