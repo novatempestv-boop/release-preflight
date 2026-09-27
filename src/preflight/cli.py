@@ -6,6 +6,7 @@ from .analysis import composition, duplicate_groups, largest_files
 from .detection import detect
 from .inventory import inventory_build
 from .portability import inspect_paths
+from .secrets import inspect_secret_contents
 from .rules import inspect
 
 
@@ -26,6 +27,7 @@ def main() -> None:
     inventory = inventory_build(args.build)
     findings = inspect(inventory)
     path_issues = inspect_paths(inventory)
+    secret_findings = inspect_secret_contents(inventory)
     counts = Counter(f.severity for f in findings)
 
     print("Release Preflight")
@@ -40,6 +42,7 @@ def main() -> None:
             print(f"  ... and {len(inventory.inaccessible) - 5} more")
     print(f"Findings: {counts['Critical']} Critical / {counts['Warning']} Warning / {counts['Info']} Info")
     print(f"Path portability: {len(path_issues)} issue(s)")
+    print(f"Content secrets: {len(secret_findings)} finding(s)")
 
     detections = detect(inventory)
     if detections:
@@ -67,6 +70,15 @@ def main() -> None:
             print(f"  {_human_bytes(group.wasted_bytes)} potentially wasted · {len(group.paths)} copies")
             for path in group.paths:
                 print(f"    {path}")
+
+    if secret_findings:
+        print("\nPotential secrets (values hidden):")
+        for secret in secret_findings:
+            print(f"  [{secret.severity}] {secret.title}")
+            print(f"    {secret.path}, line {secret.line}")
+            print(f"    {secret.reason}")
+            print(f"    Confidence: {secret.confidence}")
+            print(f"    Rule: {secret.rule_id}")
 
     if path_issues:
         print("\nPath portability:")
