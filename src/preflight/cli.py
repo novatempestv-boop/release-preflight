@@ -3,6 +3,7 @@ from collections import Counter
 from pathlib import Path
 
 from .analysis import composition, duplicate_groups, largest_files
+from .detection import detect
 from .inventory import inventory_build
 from .rules import inspect
 
@@ -30,6 +31,16 @@ def main() -> None:
     print(f"Size: {_human_bytes(inventory.total_bytes)}")
     print(f"Coverage: {'Complete' if inventory.coverage_complete else 'Limited'}")
     print(f"Findings: {counts['Critical']} Critical / {counts['Warning']} Warning / {counts['Info']} Info")
+
+    detections = detect(inventory)
+    if detections:
+        print("\nDetected build:")
+        for item in detections:
+            evidence = ", ".join(item.evidence)
+            print(f"  {item.kind}: {item.name} · {item.confidence} confidence")
+            print(f"    Evidence: {evidence}")
+    else:
+        print("\nDetected build: Unknown (not enough evidence)")
 
     print("\nBuild composition:")
     for stat in composition(inventory):
