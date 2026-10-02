@@ -38,7 +38,7 @@ def inspect_secret_contents(inventory: Inventory) -> tuple[SecretFinding, ...]:
             continue
 
         try:
-            text = (inventory.root / file.relative_path).read_text(encoding="utf-8", errors="replace")
+            text = (inventory.root / Path(*file.relative_path.parts)).read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
 
