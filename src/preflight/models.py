@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 
 @dataclass(frozen=True, slots=True)
 class FileRecord:
-    relative_path: PurePosixPath
+    relative_path: Path
     size: int
     extension: str
 
@@ -14,7 +14,7 @@ class Inventory:
     root: Path
     files: tuple[FileRecord, ...]
     total_bytes: int
-    inaccessible: tuple[PurePosixPath, ...]
+    inaccessible: tuple[Path, ...]
 
     @property
     def coverage_complete(self) -> bool:
