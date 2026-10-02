@@ -75,3 +75,22 @@ def test_baseline_diff_can_show_added_removed_and_changed_sections(tmp_path: Pat
     assert len(diff.size_changed) == 1
     assert diff.size_changed[0][0].path == "changed.bin"
     assert diff.size_changed[0][1].path == "changed.bin"
+
+
+def test_diff_explains_size_change_by_top_level_area(tmp_path: Path) -> None:
+    build = tmp_path / "build"
+    (build / "audio").mkdir(parents=True)
+    (build / "art").mkdir()
+    (build / "audio" / "theme.ogg").write_bytes(b"1234")
+    (build / "art" / "hero.png").write_bytes(b"12")
+
+    previous = snapshot_inventory(inventory_build(build))
+
+    (build / "audio" / "theme.ogg").write_bytes(b"123456789")
+    (build / "art" / "extra.png").write_bytes(b"123")
+
+    current = snapshot_inventory(inventory_build(build))
+    diff = diff_snapshots(previous, current)
+
+    assert diff.bytes_delta == 8
+    assert diff.growth_by_top_level == (("audio", 5), ("art", 3))
