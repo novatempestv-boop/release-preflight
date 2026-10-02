@@ -22,25 +22,40 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="Print a privacy-safe JSON report")
     parser.add_argument("--output", type=Path, help="Write the JSON report to a file")
     parser.add_argument("--save-baseline", type=Path, help="Save this build as a metadata-only baseline")
+    parser.add_argument(
+        "--fingerprint-baseline",
+        action="store_true",
+        help="Include SHA-256 fingerprints in a saved baseline; reads file contents",
+    )
     parser.add_argument("--compare-baseline", type=Path, help="Compare this build with a saved baseline")
+    parser.add_argument(
+        "--verify-content",
+        action="store_true",
+        help="Hash current files while comparing a fingerprinted baseline",
+    )
     args = parser.parse_args()
 
     result = scan_build(args.build)
 
     if args.save_baseline:
-        save_baseline(snapshot_inventory(result.inventory), args.save_baseline)
-        print(f"Baseline saved: {args.save_baseline}")
+        snapshot = snapshot_inventory(result.inventory, include_fingerprints=args.fingerprint_baseline)
+        save_baseline(snapshot, args.save_baseline)
+        mode = "with content fingerprints" if args.fingerprint_baseline else "metadata-only"
+        print(f"Baseline saved: {args.save_baseline} ({mode})")
         return
 
     if args.compare_baseline:
         previous = load_baseline(args.compare_baseline)
-        current = snapshot_inventory(result.inventory)
-        diff = diff_snapshots(previous, current)
+        current = snapshot_inventory(result.inventory, include_fingerprints=args.verify_content)
+        diff = diff_snapshots(previous, current, verify_content=args.verify_content)
         sign = "+" if diff.bytes_delta > 0 else ""
         print("Release Preflight · Build changes")
         print(f"Added: {len(diff.added)}")
         print(f"Removed: {len(diff.removed)}")
         print(f"Size changed: {len(diff.size_changed)}")
+        if args.verify_content:
+            print(f"Content changed: {len(diff.content_changed)}")
+            print(f"Content unverified: {len(diff.content_unverified)}")
         print(f"Unchanged: {diff.unchanged}")
         print(f"Build size delta: {sign}{_human_bytes(diff.bytes_delta)}")
         if diff.growth_by_top_level:
@@ -49,20 +64,29 @@ def main() -> None:
                 delta_sign = "+" if delta > 0 else ""
                 print(f"  {name}: {delta_sign}{_human_bytes(delta)}")
         if diff.added:
-            print("\\nAdded:")
+            print("\nAdded:")
             for item in diff.added:
                 print(f"  + {item.path} ({_human_bytes(item.size)})")
         if diff.removed:
-            print("\\nRemoved:")
+            print("\nRemoved:")
             for item in diff.removed:
                 print(f"  - {item.path} ({_human_bytes(item.size)})")
         if diff.size_changed:
-            print("\\nSize changed:")
+            print("\nSize changed:")
             for old, new in diff.size_changed:
                 delta = new.size - old.size
                 delta_sign = "+" if delta > 0 else ""
                 print(f"  ~ {new.path}: {_human_bytes(old.size)} -> {_human_bytes(new.size)} ({delta_sign}{_human_bytes(delta)})")
+        if diff.content_changed:
+            print("\nContent changed (same path and size):")
+            for old, new in diff.content_changed:
+                print(f"  ! {new.path} ({_human_bytes(new.size)})")
+        if diff.content_unverified:
+            print("\nContent unverified:")
+            for item in diff.content_unverified:
+                print(f"  ? {item.path} ({_human_bytes(item.size)})")
         return
+
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(report_json(result), encoding="utf-8")
