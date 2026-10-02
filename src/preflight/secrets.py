@@ -22,7 +22,14 @@ MAX_FILE_BYTES = 1024 * 1024
 PATTERNS = (
     ("SEC-101", "Private key material", "Certain", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
     ("SEC-102", "Credential-like assignment", "Medium", re.compile(
-        r"(?i)\b(?:api[_-]?key|access[_-]?token|secret|password|passwd)\b\s*[:=]\s*[\"']?[^\s\"']{8,}"
+        r"""(?ix)
+        ["']?
+        \b(?:api[_-]?key|access[_-]?token|secret|password|passwd)\b
+        ["']?
+        \s*[:=]\s*
+        ["']?
+        [^\s"' ,}]{8,}
+        """
     )),
 )
 
@@ -38,7 +45,7 @@ def inspect_secret_contents(inventory: Inventory) -> tuple[SecretFinding, ...]:
             continue
 
         try:
-            text = (inventory.root / Path(*file.relative_path.parts)).read_text(encoding="utf-8", errors="replace")
+            text = (inventory.root / file.relative_path).read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
 
