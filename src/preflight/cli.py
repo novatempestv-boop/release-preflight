@@ -43,6 +43,11 @@ def main() -> None:
         print(f"Size changed: {len(diff.size_changed)}")
         print(f"Unchanged: {diff.unchanged}")
         print(f"Build size delta: {sign}{_human_bytes(diff.bytes_delta)}")
+        if diff.growth_by_top_level:
+            print("\nSize change by area:")
+            for name, delta in diff.growth_by_top_level:
+                delta_sign = "+" if delta > 0 else ""
+                print(f"  {name}: {delta_sign}{_human_bytes(delta)}")
         if diff.added:
             print("\\nAdded:")
             for item in diff.added:
