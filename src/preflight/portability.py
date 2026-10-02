@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 from .models import Inventory
 
@@ -21,12 +22,12 @@ WINDOWS_RESERVED = {
 }
 
 
-def inspect_paths(inventory: Inventory) -> tuple[PathIssue, ...]:
+def inspect_relative_paths(paths: Iterable[Path]) -> tuple[PathIssue, ...]:
+    """Inspect logical relative paths without requiring the host filesystem to represent them."""
     issues: list[PathIssue] = []
     casefolded: dict[str, list[Path]] = {}
 
-    for file in inventory.files:
-        path = file.relative_path
+    for path in paths:
         text = str(path).replace("\\", "/")
         casefolded.setdefault(text.casefold(), []).append(path)
 
@@ -52,13 +53,18 @@ def inspect_paths(inventory: Inventory) -> tuple[PathIssue, ...]:
                 ))
                 break
 
-    for paths in casefolded.values():
-        if len(paths) > 1:
-            shown = ", ".join(str(path) for path in sorted(paths, key=str))
+    for collision_paths in casefolded.values():
+        if len(collision_paths) > 1:
+            ordered = sorted(collision_paths, key=str)
+            shown = ", ".join(str(path) for path in ordered)
             issues.append(PathIssue(
                 "PTH-004", "Warning", "Certain", "Case-only path collision",
-                sorted(paths, key=str)[0],
+                ordered[0],
                 f"These paths differ only by letter case: {shown}. This can break across filesystems.",
             ))
 
     return tuple(sorted(issues, key=lambda issue: (issue.rule_id, str(issue.path))))
+
+
+def inspect_paths(inventory: Inventory) -> tuple[PathIssue, ...]:
+    return inspect_relative_paths(file.relative_path for file in inventory.files)
