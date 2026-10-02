@@ -47,3 +47,31 @@ def test_baseline_round_trip_is_portable_and_content_free(tmp_path: Path) -> Non
     assert str(build) not in text
     assert "abc" not in text
     assert load_baseline(baseline_path) == snapshot
+
+
+def test_baseline_diff_can_show_added_removed_and_changed_sections(tmp_path: Path) -> None:
+    from preflight.baseline import load_baseline, save_baseline
+
+    build = tmp_path / "build"
+    build.mkdir()
+    (build / "same.txt").write_text("same", encoding="utf-8")
+    (build / "changed.bin").write_bytes(b"old")
+    (build / "removed.txt").write_text("gone", encoding="utf-8")
+
+    baseline_path = tmp_path / "baseline.json"
+    save_baseline(snapshot_inventory(inventory_build(build)), baseline_path)
+
+    (build / "changed.bin").write_bytes(b"new and larger")
+    (build / "removed.txt").unlink()
+    (build / "added.txt").write_text("new", encoding="utf-8")
+
+    diff = diff_snapshots(
+        load_baseline(baseline_path),
+        snapshot_inventory(inventory_build(build)),
+    )
+
+    assert [item.path for item in diff.added] == ["added.txt"]
+    assert [item.path for item in diff.removed] == ["removed.txt"]
+    assert len(diff.size_changed) == 1
+    assert diff.size_changed[0][0].path == "changed.bin"
+    assert diff.size_changed[0][1].path == "changed.bin"
