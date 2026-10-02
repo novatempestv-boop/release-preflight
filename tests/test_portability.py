@@ -1,19 +1,16 @@
 from pathlib import Path
 
 from preflight.inventory import inventory_build
-from preflight.portability import inspect_paths
+from preflight.portability import inspect_paths, inspect_relative_paths
 
 
-def test_case_only_collision(tmp_path: Path) -> None:
-    (tmp_path / "Hero.png").write_bytes(b"a")
-    (tmp_path / "hero.png").write_bytes(b"b")
-    issues = inspect_paths(inventory_build(tmp_path))
+def test_case_only_collision() -> None:
+    issues = inspect_relative_paths((Path("Hero.png"), Path("hero.png")))
     assert any(issue.rule_id == "PTH-004" for issue in issues)
 
 
-def test_windows_reserved_name(tmp_path: Path) -> None:
-    (tmp_path / "CON.txt").write_text("x")
-    issues = inspect_paths(inventory_build(tmp_path))
+def test_windows_reserved_name() -> None:
+    issues = inspect_relative_paths((Path("CON.txt"),))
     assert any(issue.rule_id == "PTH-003" for issue in issues)
 
 
