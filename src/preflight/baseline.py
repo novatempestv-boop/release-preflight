@@ -26,6 +26,7 @@ class BuildDiff:
     size_changed: tuple[tuple[SnapshotEntry, SnapshotEntry], ...]
     unchanged: int
     bytes_delta: int
+    growth_by_top_level: tuple[tuple[str, int], ...] = ()
 
 
 def snapshot_inventory(inventory: Inventory) -> BuildSnapshot:
@@ -86,10 +87,31 @@ def diff_snapshots(previous: BuildSnapshot, current: BuildSnapshot) -> BuildDiff
         if old[path].size == new[path].size
     )
 
+    growth: dict[str, int] = {}
+
+    def bucket(path: str) -> str:
+        return path.split("/", 1)[0] if "/" in path else "(root)"
+
+    for entry in added:
+        growth[bucket(entry.path)] = growth.get(bucket(entry.path), 0) + entry.size
+    for entry in removed:
+        growth[bucket(entry.path)] = growth.get(bucket(entry.path), 0) - entry.size
+    for old_entry, new_entry in changed:
+        name = bucket(new_entry.path)
+        growth[name] = growth.get(name, 0) + (new_entry.size - old_entry.size)
+
+    growth_by_top_level = tuple(
+        sorted(
+            ((name, delta) for name, delta in growth.items() if delta),
+            key=lambda item: (-abs(item[1]), item[0]),
+        )
+    )
+
     return BuildDiff(
         added=added,
         removed=removed,
         size_changed=changed,
         unchanged=unchanged,
         bytes_delta=current.total_bytes - previous.total_bytes,
+        growth_by_top_level=growth_by_top_level,
     )
