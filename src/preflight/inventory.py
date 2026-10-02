@@ -1,5 +1,5 @@
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from .models import FileRecord, Inventory
 
@@ -11,7 +11,7 @@ def inventory_build(root: Path) -> Inventory:
         raise ValueError("Build path must be a directory.")
 
     files: list[FileRecord] = []
-    inaccessible: list[PurePosixPath] = []
+    inaccessible: list[Path] = []
     total = 0
 
     def onerror(error: OSError) -> None:
@@ -19,15 +19,13 @@ def inventory_build(root: Path) -> Inventory:
         if filename:
             path = Path(filename)
             try:
-                inaccessible.append(PurePosixPath(path.relative_to(root).as_posix()))
+                inaccessible.append(path.relative_to(root))
             except ValueError:
                 inaccessible.append(path)
 
     for directory, dirnames, filenames in os.walk(root, topdown=True, followlinks=False, onerror=onerror):
         directory_path = Path(directory)
 
-        # Never descend into symlinked directories. Record them as uninspected so
-        # "complete coverage" never quietly means "we skipped something."
         kept_dirs = []
         for name in dirnames:
             path = directory_path / name
@@ -50,7 +48,7 @@ def inventory_build(root: Path) -> Inventory:
                 stat = path.stat()
                 if not path.is_file():
                     continue
-                files.append(FileRecord(PurePosixPath(relative.as_posix()), stat.st_size, path.suffix.lower()))
+                files.append(FileRecord(relative, stat.st_size, path.suffix.lower()))
                 total += stat.st_size
             except OSError:
                 try:
