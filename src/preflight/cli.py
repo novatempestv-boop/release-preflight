@@ -2,6 +2,7 @@ import argparse
 from collections import Counter
 from pathlib import Path
 
+from .baseline import diff_snapshots, load_baseline, save_baseline, snapshot_inventory
 from .report import report_json
 from .scan import scan_build
 
@@ -20,9 +21,43 @@ def main() -> None:
     parser.add_argument("build", type=Path, help="Finished build folder")
     parser.add_argument("--json", action="store_true", help="Print a privacy-safe JSON report")
     parser.add_argument("--output", type=Path, help="Write the JSON report to a file")
+    parser.add_argument("--save-baseline", type=Path, help="Save this build as a metadata-only baseline")
+    parser.add_argument("--compare-baseline", type=Path, help="Compare this build with a saved baseline")
     args = parser.parse_args()
 
     result = scan_build(args.build)
+
+    if args.save_baseline:
+        save_baseline(snapshot_inventory(result.inventory), args.save_baseline)
+        print(f"Baseline saved: {args.save_baseline}")
+        return
+
+    if args.compare_baseline:
+        previous = load_baseline(args.compare_baseline)
+        current = snapshot_inventory(result.inventory)
+        diff = diff_snapshots(previous, current)
+        sign = "+" if diff.bytes_delta > 0 else ""
+        print("Release Preflight · Build changes")
+        print(f"Added: {len(diff.added)}")
+        print(f"Removed: {len(diff.removed)}")
+        print(f"Size changed: {len(diff.size_changed)}")
+        print(f"Unchanged: {diff.unchanged}")
+        print(f"Build size delta: {sign}{_human_bytes(diff.bytes_delta)}")
+        if diff.added:
+            print("\\nAdded:")
+            for item in diff.added:
+                print(f"  + {item.path} ({_human_bytes(item.size)})")
+        if diff.removed:
+            print("\\nRemoved:")
+            for item in diff.removed:
+                print(f"  - {item.path} ({_human_bytes(item.size)})")
+        if diff.size_changed:
+            print("\\nSize changed:")
+            for old, new in diff.size_changed:
+                delta = new.size - old.size
+                delta_sign = "+" if delta > 0 else ""
+                print(f"  ~ {new.path}: {_human_bytes(old.size)} -> {_human_bytes(new.size)} ({delta_sign}{_human_bytes(delta)})")
+        return
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(report_json(result), encoding="utf-8")
