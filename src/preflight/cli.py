@@ -19,9 +19,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="preflight", description="Check the build before you ship the build.")
     parser.add_argument("build", type=Path, help="Finished build folder")
     parser.add_argument("--json", action="store_true", help="Print a privacy-safe JSON report")
+    parser.add_argument("--output", type=Path, help="Write the JSON report to a file")
     args = parser.parse_args()
 
     result = scan_build(args.build)
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(report_json(result), encoding="utf-8")
+        print(f"Report written: {args.output}")
+        return
     if args.json:
         print(report_json(result), end="")
         return
