@@ -1,5 +1,5 @@
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .models import FileRecord, Inventory
 
@@ -11,7 +11,7 @@ def inventory_build(root: Path) -> Inventory:
         raise ValueError("Build path must be a directory.")
 
     files: list[FileRecord] = []
-    inaccessible: list[Path] = []
+    inaccessible: list[PurePosixPath] = []
     total = 0
 
     def onerror(error: OSError) -> None:
@@ -19,7 +19,7 @@ def inventory_build(root: Path) -> Inventory:
         if filename:
             path = Path(filename)
             try:
-                inaccessible.append(path.relative_to(root))
+                inaccessible.append(PurePosixPath(path.relative_to(root).as_posix()))
             except ValueError:
                 inaccessible.append(path)
 
@@ -50,7 +50,7 @@ def inventory_build(root: Path) -> Inventory:
                 stat = path.stat()
                 if not path.is_file():
                     continue
-                files.append(FileRecord(relative, stat.st_size, path.suffix.lower()))
+                files.append(FileRecord(PurePosixPath(relative.as_posix()), stat.st_size, path.suffix.lower()))
                 total += stat.st_size
             except OSError:
                 try:
