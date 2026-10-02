@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from preflight.baseline import diff_snapshots, snapshot_inventory
+from preflight.baseline import diff_snapshots, load_baseline, save_baseline, snapshot_inventory
 from preflight.inventory import inventory_build
 
 
@@ -30,8 +30,6 @@ def test_snapshot_diff_tracks_added_removed_and_size_changes(tmp_path: Path) -> 
 
 
 def test_baseline_round_trip_is_portable_and_content_free(tmp_path: Path) -> None:
-    from preflight.baseline import load_baseline, save_baseline
-
     build = tmp_path / "build"
     build.mkdir()
     nested = build / "assets"
@@ -50,8 +48,6 @@ def test_baseline_round_trip_is_portable_and_content_free(tmp_path: Path) -> Non
 
 
 def test_baseline_diff_can_show_added_removed_and_changed_sections(tmp_path: Path) -> None:
-    from preflight.baseline import load_baseline, save_baseline
-
     build = tmp_path / "build"
     build.mkdir()
     (build / "same.txt").write_text("same", encoding="utf-8")
@@ -94,3 +90,39 @@ def test_diff_explains_size_change_by_top_level_area(tmp_path: Path) -> None:
 
     assert diff.bytes_delta == 8
     assert diff.growth_by_top_level == (("audio", 5), ("art", 3))
+
+
+def test_fingerprinted_baseline_detects_same_size_content_change(tmp_path: Path) -> None:
+    build = tmp_path / "build"
+    build.mkdir()
+    file = build / "game.bin"
+    file.write_bytes(b"AAAA")
+
+    previous = snapshot_inventory(inventory_build(build), include_fingerprints=True)
+    save_baseline(previous, tmp_path / "baseline.json")
+
+    file.write_bytes(b"BBBB")
+    current = snapshot_inventory(inventory_build(build), include_fingerprints=True)
+    diff = diff_snapshots(load_baseline(tmp_path / "baseline.json"), current, verify_content=True)
+
+    assert diff.size_changed == ()
+    assert [(old.path, new.path) for old, new in diff.content_changed] == [
+        ("game.bin", "game.bin")
+    ]
+    assert diff.content_unverified == ()
+    assert diff.unchanged == 0
+
+
+def test_unfingerprinted_baseline_never_claims_content_is_unchanged(tmp_path: Path) -> None:
+    build = tmp_path / "build"
+    build.mkdir()
+    (build / "game.bin").write_bytes(b"AAAA")
+
+    previous = snapshot_inventory(inventory_build(build))
+    current = snapshot_inventory(inventory_build(build), include_fingerprints=True)
+
+    diff = diff_snapshots(previous, current, verify_content=True)
+
+    assert diff.content_changed == ()
+    assert [item.path for item in diff.content_unverified] == ["game.bin"]
+    assert diff.unchanged == 0
